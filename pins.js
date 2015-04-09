@@ -29,19 +29,14 @@ exports.putRequest = function (request, response) {
   var log = generateLog(request);
   validateInput(log);
   if (log.isSuccessful()) {
-    log.code = setPin(log.resource, log.state);    
+    log.code = setPin(log.resource, log.state);
   }
   createOutput(response, log);
 };
 
 exports.validateUser = function (request, response) {
   request.startTime = Date.now();
-  request.logCode = codes.SUCCESSFUL;
-
-  if (request.method == "PUT" && request.body.secret != config.secret) {
-    request.logCode = codes.INVALID_SECRET;
-  }
-
+  request.logCode = (request.method == "PUT" && request.body.secret != config.secret) ? codes.INVALID_SECRET : codes.SUCCESSFUL;
   if (request.headers.origin != config.domain) {
     request.logCode = codes.INVALID_IP;
   }
@@ -55,7 +50,7 @@ function validateInput(log) {
     }
   });
 
-  if (log.method == 'PUT' && [0,1].indexOf(log.state) < 0) {
+  if (log.isPutMethod() && [0,1].indexOf(log.state) < 0) {
     log.code = codes.INVALID_BODY;
   }
   if (!isResourceValid) {
@@ -65,25 +60,29 @@ function validateInput(log) {
 
 exports.cookieRequest = function (request, response) {
   var log = generateLog(request);
-  log.password = request.params.password;
+  log.password = request.body.password;
   createOutput(response, log);
 };
 
 exports.verifySecret = function (request, response) {
   var log = generateLog(request);
-  log.secret = request.params.secret;
+  log.secret = request.body.secret;
   createOutput(response, log);
 };
 
 function createOutput(response, log) {
-  var answer = getAnswer(log)
+  var answer = (isRequestValid(log.code)) ? getAnswer(log) : {};
   setPermissions(response);
   commitLog(log);
   if (log.isSuccessful()) {
-    response.json(answer).status(codes.SUCCESSFUL);
+    response.json(answer).status(codes.SUCCESSFUL).end();
   } else {
-    response.status(log.code);
+    response.status(log.code).end();
   }
+}
+
+function isRequestValid(code) {
+  return (code != codes.INVALID_IP);
 }
 
 function setPermissions(response) {
@@ -93,9 +92,9 @@ function setPermissions(response) {
 }
 
 function getAnswer(log) {
-  if (log.password) {
+  if (log.isPassword()) {
     return getCookie(log);
-  } else if (log.secret) {
+  } else if (log.isSecret()) {
     return getVerification(log);
   } else if (log.isSuccessful()) {
     return readPins(log);
@@ -106,6 +105,7 @@ function getAnswer(log) {
 
 function getCookie(log) {
   if (log.isPasswordValid()) {
+    log.code = codes.SUCCESSFUL;
     return {'secret':config.secret};
   } else {
     log.code = codes.INVALID_PASSWORD;
@@ -157,18 +157,25 @@ function setPin(resource, state) {
 function generateLog(request) {
   var state = (['0','1'].indexOf(request.body.state) >= 0) ? parseInt(request.body.state) : ""; 
   return {
-           'startTime'    : request.startTime,
-           'ip'           : request.connection.remoteAddress,
-           'method'       : request.method,
-           'resource'     : request.params.id || "",
-           'state'        : state,
-           'endState'     : "",
-           'dateStamp'    : moment().format('DD-MMM-YYYY'),
-           'timeStamp'    : moment().format('HH:mm:ss:SSS'),
-           'code'         : request.logCode,
-           isSuccessful   : function() { return (this.code == codes.SUCCESSFUL); },
-           isPasswordValid: function() { return (this.password == config.password); },
-           isSecretValid  : function() { return (this.secret == config.secret); }
+           'aim'           : request.aim || logger.aim.UNKNOWN,
+           'startTime'     : request.startTime,
+           'ip'            : request.connection.remoteAddress,
+           'method'        : request.method,
+           'resource'      : request.params.id || "",
+           'state'         : state,
+           'endState'      : "",
+           'dateStamp'     : moment().format('DD-MMM-YYYY'),
+           'timeStamp'     : moment().format('HH:mm:ss:SSS'),
+           'code'          : request.logCode,
+           isSuccessful    : function() { return (this.code == codes.SUCCESSFUL); },
+           isPasswordValid : function() { return (this.password == config.password); },
+           isSecretValid   : function() { return (this.secret == config.secret); },
+           isGetMethod     : function() { return (this.method == "GET"); },
+           isPutMethod     : function() { return (this.method == "PUT"); },
+           isStatus        : function() { return (this.aim == logger.aim.STATUS); },
+           isSwitch        : function() { return (this.aim == logger.aim.SWITCH); },
+           isSecret        : function() { return (this.aim == logger.aim.SECRET); },
+           isPassword      : function() { return (this.aim == logger.aim.PASSWORD); }
          };
 }
 
@@ -176,11 +183,11 @@ function commitLog(log) {
   log.totalTime = Date.now() - log.startTime;
   var content = "";
 
-  if (log.method == "PUT") {
+  if (log.isSwitch()) {
     content = log.endState + " " + log.resource + ":" + log.state;
-  } else if (log.method == "GET" && log.password) {
+  } else if (log.isPassword()) {
     content = "cookie";
-  } else if (log.method == "GET" && log.secret) {
+  } else if (log.isSecret()) {
     content = "secret"
   } else {
     content = log.endState;    
@@ -189,5 +196,5 @@ function commitLog(log) {
   log.message   = "[" + log.dateStamp + "] [" + log.timeStamp + "] [" + log.method + "-" + log.code +
                   "] [" + log.ip + "] [" + content + "] " + log.totalTime + "ms<br>";
 
-  logger.writeLog(log.message, log.method);
+  logger.writeLog(log.message, log.isSwitch());
 }

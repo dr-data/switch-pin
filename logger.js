@@ -1,11 +1,19 @@
 var fs = require('fs');
 
-exports.writeLog = function (message, method) {
+exports.aim = {
+                PASSWORD: 1,
+                SECRET: 2,
+                STATUS: 3,
+                SWITCH: 4,
+                UNKNOWN: 5
+              };
+
+exports.writeLog = function (message, isSwitch) {
   console.log(message);
- if (method == "PUT") {
-    fs.createWriteStream('put.log',{'flags':'a'}).end(message);
+  if (isSwitch) {
+    fs.createWriteStream('log.switch',{'flags':'a'}).end(message);
   } else {
-    fs.createWriteStream('get.log',{'flags':'a'}).end(message);
+    fs.createWriteStream('log.status',{'flags':'a'}).end(message);
   }
 };
 
@@ -37,7 +45,7 @@ exports.showLog = function (response) {
                     </div> \
                            \
                     <div class='black log'>" +
-                      fs.readFileSync('put.log','utf8') +
+                      fs.readFileSync('log.switch','utf8') +
                     "</div> \
                      <br> \
                     <div class='green log'> \
@@ -45,7 +53,7 @@ exports.showLog = function (response) {
                     </div> \
                            \
                     <div class='black log'>" +
-                      fs.readFileSync('get.log','utf8') +
+                      fs.readFileSync('log.status','utf8') +
                     "</div> \
                      <br> \
                   </div> \
