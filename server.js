@@ -1,23 +1,30 @@
-var express      = require('express'),
+var port         = 80,
+    express      = require('express'),
     bodyParser   = require('body-parser'),
     cookieParser = require('cookie-parser'),
     moment       = require('moment'),
     fs           = require('fs'),
+    fitbit       = require('./fitbit'),
     logger       = require('./logger'),
     web          = require('./web'),
     pins         = require('./pins'),
-    port         = 80,
     app          = express().use(bodyParser.json())
                             .use(cookieParser());
 
-app.use('/api*', function (request, response, next) {
-  pins.validateUser(request, response);
-  next();
+// ----------=== fitbit ===---------- //
+
+app.get("/fitbit/auth", function (request, response) {
+  fitbit.authenticator(request, response);
 });
 
-app.route('/')
-.get(function(request, response, next) {
-  web.page(request, response);
+app.get("/fitbit/fitbit?*", function (request, response) {
+  fitbit.handler(request, response);
+});
+
+// --------=== switch-pin ===-------- //
+
+app.use('/api*', function (request, response, next) {
+  pins.validateUser(request, response);
   next();
 });
 
@@ -34,7 +41,6 @@ app.route('/api/secret/')
   next();
 })
 .options(function(request, response, next) {
-  console.log('b' + request.originalUrl);
   pins.optionRequest(request, response);
   next();
 });
@@ -46,7 +52,6 @@ app.route('/api/password/')
   next();
 })
 .options(function(request, response, next) {
-  console.log('c' + request.originalUrl);
   pins.optionRequest(request, response);
   next();
 });
@@ -70,7 +75,6 @@ app.route('/api/pins/:id')
   next();
 })
 .options(function(request, response, next) {
-  console.log('d' + request.originalUrl);
   pins.optionRequest(request, response);
   next();
 });
