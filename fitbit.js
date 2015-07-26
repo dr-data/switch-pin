@@ -36,6 +36,8 @@ function getAuthToken(req, res){
 }
 
 function getFitbitResource(uri1, uri2){
+
+    // for testing purposes only...
     for (var i=0;i<tokens.length;i++){
         console.log("   (token    #" + i + ": " + tokens[i] + ")");
         console.log("   (secret   #" + i + ": " + secrets[i] + ")");
@@ -50,20 +52,17 @@ function getFitbitResource(uri1, uri2){
         client.requestResource(uri1, "GET", accessToken, accessSecret)
         .then(function (results) {
             resource = JSON.parse(results[0]);
-            activity.activityName = "lightsOff";
-            activity.now = Date.today().setTimeToNow();
-            activity.startTime = activity.now.toString("HH:mm");
-            activity.date = activity.now.toString("yyyy-MM-dd");
-            activity.durationMillis = ( getNextAlarm(activity.now, resource.trackerAlarms).getTime() - activity.now.getTime() ) * 1000;
+            activity = getActivity(resource.trackerAlarms);
         }).then(
             client.getAccessToken(tokens[1], secrets[1], verifiers[1])
             .then(function (results) {
                 accessToken = results[0];
                 accessSecret = results[1];
-                client.requestResource(uri2, "GET", accessToken, accessSecret)
+                // setup parameters for post here...
+                client.requestResource(uri2, "POST", accessToken, accessSecret)
                 .then(function (results) {
-                    console.log("b");
                     resource = JSON.parse(results[0]);
+                    console.log(resource);
                 });
             }, function (error) {
                 res.send(error);
@@ -72,6 +71,17 @@ function getFitbitResource(uri1, uri2){
     }, function (error) {
         res.send(error);
     });
+}
+
+// setup parameters of activity object
+function getActivity(alarms){
+    var a = {};
+    a.activityName = "lightsOff";
+    a.now = Date.today().setTimeToNow();
+    a.startTime = activity.now.toString("HH:mm");
+    a.date = activity.now.toString("yyyy-MM-dd");
+    a.durationMillis = ( getNextAlarm(activity.now, alarms).getTime() - activity.now.getTime() ) * 1000;
+    return a;
 }
 
 // returns next alarm from json object
