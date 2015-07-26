@@ -13,10 +13,6 @@ var port         = 80,
 
 // ----------=== fitbit ===---------- //
 
-app.get("/fitbit/auth", function (request, response) {
-  fitbit.authenticator(request, response);
-});
-
 app.get("/fitbit/fitbit?*", function (request, response) {
   fitbit.handler(request, response);
 });

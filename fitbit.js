@@ -1,46 +1,75 @@
-var express      = require("express"),
-    datejs       = require('datejs'),
-    FBitClient   = require("fitbit-node"),
-    config       = require('./config'),
-	app          = express(),
-	client       = new FBitClient(config.CONSUMER_KEY, config.CONSUMER_SECRET),
-    AUTH_URL     = "http://www.fitbit.com/oauth/authenticate?oauth_token=",
-    ALARMS_URI   = "/devices/tracker/" + config.DEVICE_ID + "/alarms.json",
-	tokenSecrets = {};
-
-exports.authenticator = function (req, res) {
-    getAuthToken(req, res);
-};
+var express        = require("express"),
+    datejs         = require('datejs'),
+    FBitClient     = require("fitbit-node"),
+    config         = require('./config'),
+	app            = express(),
+	client         = new FBitClient(config.CONSUMER_KEY, config.CONSUMER_SECRET),
+    AUTH_URL       = "http://www.fitbit.com/oauth/authenticate?oauth_token=",
+    ALARMS_URI     = "/devices/tracker/" + config.DEVICE_ID + "/alarms.json",
+    ACTIVITIES_URI = "/activities.json",
+    tokens         = [];
+    secrets        = [];
+    verifiers      = [];
+    numberPasses   = 0;
 
 exports.handler = function (req, res) {
-    getFitbitResource(ALARMS_URI, req.query.oauth_token, req.query.oauth_verifier);
-    res.end();
+    if (numberPasses < 2) {
+        getAuthToken(req, res);
+    } else {
+        verifiers[numberPasses-1] = req.query.oauth_verifier;
+        numberPasses = 0;
+        getFitbitResource(ALARMS_URI, ACTIVITIES_URI);
+        res.end();
+    }
 };
 
-function getFitbitResource(uri, token, verifier){
-    secret = tokenSecrets[token];
-    client.getAccessToken(token, secret, verifier)
-    .then(function (results) {
-        accessToken = results[0];
-        accessSecret = results[1];
-        client.requestResource(uri, "GET", accessToken, accessSecret)
-        .then(function (results) {
-            resource = JSON.parse(results[0]);
-            startTime = Date.today().setTimeToNow();
-            endTime = getNextAlarm(startTime, resource.trackerAlarms);
-            console.log("from " + startTime + " to " + endTime);
-        });
+function getAuthToken(req, res){
+    client.getRequestToken().then(function (results) {
+        tokens[numberPasses] = results[0];
+        secrets[numberPasses] = results[1];
+        verifiers[numberPasses-1] = (numberPasses > 0) ? req.query.oauth_verifier : "";
+        numberPasses++;
+        res.redirect(AUTH_URL + results[0]);
     }, function (error) {
         res.send(error);
     });
 }
 
-function getAuthToken(req, res){
-     client.getRequestToken().then(function (results) {
-        token = results[0];
-        secret = results[1];
-        tokenSecrets[token] = secret;
-        res.redirect(AUTH_URL + token);
+function getFitbitResource(uri1, uri2){
+    for (var i=0;i<tokens.length;i++){
+        console.log("   (token    #" + i + ": " + tokens[i] + ")");
+        console.log("   (secret   #" + i + ": " + secrets[i] + ")");
+        console.log("   (verifier #" + i + ": " + verifiers[i] + ")");
+    }
+
+    var activity = {};
+    client.getAccessToken(tokens[0], secrets[0], verifiers[0])
+    .then(function (results) {
+        accessToken = results[0];
+        accessSecret = results[1];
+        client.requestResource(uri1, "GET", accessToken, accessSecret)
+        .then(function (results) {
+            resource = JSON.parse(results[0]);
+            activity.activityName = "lightsOff";
+            activity.startTime = Date.today().setTimeToNow().toString("HH:mm");
+            activity.date = Date.today().setTimeToNow().toString("yyyy-MM-dd");
+            activity.durationMillis = ""; // difference between now and getNextAlarm
+            console.log(activity.date);
+            console.log(activity.startTime);
+        }).then(
+            client.getAccessToken(tokens[1], secrets[1], verifiers[1])
+            .then(function (results) {
+                accessToken = results[0];
+                accessSecret = results[1];
+                client.requestResource(uri2, "GET", accessToken, accessSecret)
+                .then(function (results) {
+                    console.log("b");
+                    resource = JSON.parse(results[0]);
+                });
+            }, function (error) {
+                res.send(error);
+            })
+        );
     }, function (error) {
         res.send(error);
     });
