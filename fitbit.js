@@ -51,11 +51,10 @@ function getFitbitResource(uri1, uri2){
         .then(function (results) {
             resource = JSON.parse(results[0]);
             activity.activityName = "lightsOff";
-            activity.startTime = Date.today().setTimeToNow().toString("HH:mm");
-            activity.date = Date.today().setTimeToNow().toString("yyyy-MM-dd");
-            activity.durationMillis = ""; // difference between now and getNextAlarm
-            console.log(activity.date);
-            console.log(activity.startTime);
+            activity.now = Date.today().setTimeToNow();
+            activity.startTime = activity.now.toString("HH:mm");
+            activity.date = activity.now.toString("yyyy-MM-dd");
+            activity.durationMillis = ( getNextAlarm(activity.now, resource.trackerAlarms).getTime() - activity.now.getTime() ) * 1000;
         }).then(
             client.getAccessToken(tokens[1], secrets[1], verifiers[1])
             .then(function (results) {
