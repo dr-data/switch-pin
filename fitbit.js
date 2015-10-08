@@ -1,96 +1,121 @@
-var express        = require("express"),
-    datejs         = require('datejs'),
-    FBitClient     = require("fitbit-node"),
-    config         = require('./config'),
-	app            = express(),
-	client         = new FBitClient(config.CONSUMER_KEY, config.CONSUMER_SECRET),
-    AUTH_URL       = "http://www.fitbit.com/oauth/authenticate?oauth_token=",
-    ALARMS_URI     = "/devices/tracker/" + config.DEVICE_ID + "/alarms.json",
-    ACTIVITIES_URI = "/activities.json",
-    tokens         = [];
-    secrets        = [];
-    verifiers      = [];
-    numberPasses   = 0;
+var express           = require("express"),
+    datejs            = require('datejs'),
+    FBitClient        = require("fitbit-node"),
+    CronJob           = require('cron').CronJob,
+    config            = require('./config'),
+	app               = express(),
+	client            = new FBitClient(config.CONSUMER_KEY, config.CONSUMER_SECRET),
+    AUTH_URL          = "http://www.fitbit.com/oauth/authenticate?oauth_token=",
+    ALARMS_URI        = "/devices/tracker/" + config.DEVICE_ID + "/alarms.json",
+    ACTIVITIES_URI    = "/activities.json",
+    activity          = {},
+    tokenSecrets      = {},
+    cronJob           = null,
+    isPostingActivity = false;
 
+// begin the request chain by requesting fitbit authentication
+exports.logFitbitActivity = function (res) {
+    isPostingActivity = false;
+    getRequestToken(res);
+};
+
+// handle incoming request token and set alarm or post activity
 exports.handler = function (req, res) {
-    if (numberPasses < 2) {
-        getAuthToken(req, res);
+    if (isPostingActivity) {
+        postFitbitActivity(req, res);
     } else {
-        verifiers[numberPasses-1] = req.query.oauth_verifier;
-        numberPasses = 0;
-        getFitbitResource(ALARMS_URI, ACTIVITIES_URI);
-        res.end();
+        getAndSetAlarm(req, res);
     }
 };
 
-function getAuthToken(req, res){
+// get generic token from fitbit
+function getRequestToken(res) {
     client.getRequestToken().then(function (results) {
-        tokens[numberPasses] = results[0];
-        secrets[numberPasses] = results[1];
-        verifiers[numberPasses-1] = (numberPasses > 0) ? req.query.oauth_verifier : "";
-        numberPasses++;
-        res.redirect(AUTH_URL + results[0]);
+        var token = results[0],
+            secret = results[1];
+        tokenSecrets[token] = secret;
+        res.redirect(AUTH_URL + token);
     }, function (error) {
         res.send(error);
     });
 }
 
-function getFitbitResource(uri1, uri2){
+// get fitbit alarms and set next as global variable
+function getAndSetAlarm(req, res) {
+    var token = req.query.oauth_token,
+        secret = tokenSecrets[token],
+        verifier = req.query.oauth_verifier;
+    client.getAccessToken(token, secret, verifier).then(function (results) {
+        var accessToken = results[0],
+            accessSecret = results[1];
+        client.get(ALARMS_URI, accessToken, accessSecret, config.USER_ID).then(function (results) {
+            var resource = JSON.parse(results[0]);
+            var now = Date.today().setTimeToNow();
+            var nextAlarm = getNextAlarm(now, resource.trackerAlarms);
+            var duration = nextAlarm.getTime() - now.getTime();
+            activity = newActivity("sleep", now, duration);
+            setCronJob(res, nextAlarm.getTime());
+        });
+    }, function (error) {
+        res.send(error);
+    });
+}
 
-    // for testing purposes only...
-    for (var i=0;i<tokens.length;i++){
-        console.log("   (token    #" + i + ": " + tokens[i] + ")");
-        console.log("   (secret   #" + i + ": " + secrets[i] + ")");
-        console.log("   (verifier #" + i + ": " + verifiers[i] + ")");
+// set cronJob for 1 minute after alarm
+function setCronJob(res, alarm) {
+    var timeOfCronJob = new Date(alarm + 1000);
+    var cronFunction = function() {
+        isPostingActivity = true;
+        getRequestToken(res);
     }
 
-    var activity = {};
-    client.getAccessToken(tokens[0], secrets[0], verifiers[0])
-    .then(function (results) {
-        accessToken = results[0];
-        accessSecret = results[1];
-        client.requestResource(uri1, "GET", accessToken, accessSecret)
-        .then(function (results) {
+    if (cronJob) {
+        cronJob.stop();
+    }
+
+    cronJob = new CronJob({
+        cronTime: timeOfCronJob,
+        onTick: cronFunction,
+        start: false,
+        timeZone: "America/New_York"
+    });
+    cronJob.start();
+}
+
+// post the global activity object
+function postFitbitActivity(req, res) {
+    var token = req.query.oauth_token,
+        secret = tokenSecrets[token],
+        verifier = req.query.oauth_verifier;
+    client.getAccessToken(token, secret, verifier).then(function (results) {
+        var accessToken = results[0],
+            accessSecret = results[1];
+        client.post(ACTIVITIES_URI, accessToken, accessSecret, activity, config.USER_ID).then(function (results) {
             resource = JSON.parse(results[0]);
-            activity = getActivity(resource.trackerAlarms);
-        }).then(
-            client.getAccessToken(tokens[1], secrets[1], verifiers[1])
-            .then(function (results) {
-                accessToken = results[0];
-                accessSecret = results[1];
-                // setup parameters for post here...
-                client.requestResource(uri2, "POST", accessToken, accessSecret)
-                .then(function (results) {
-                    resource = JSON.parse(results[0]);
-                    console.log(resource);
-                });
-            }, function (error) {
-                res.send(error);
-            })
-        );
+        });
     }, function (error) {
         res.send(error);
     });
 }
 
 // setup parameters of activity object
-function getActivity(alarms){
-    var a = {};
-    a.activityName = "lightsOff";
-    a.now = Date.today().setTimeToNow();
-    a.startTime = activity.now.toString("HH:mm");
-    a.date = activity.now.toString("yyyy-MM-dd");
-    a.durationMillis = ( getNextAlarm(activity.now, alarms).getTime() - activity.now.getTime() ) * 1000;
-    return a;
+function newActivity(name, now, duration) {
+    var newActivity = {};
+    newActivity.activityName = name;
+    newActivity.startTime = now.toString("HH:mm");
+    newActivity.date = now.toString("yyyy-MM-dd");
+    newActivity.manualCalories = 1;
+    newActivity.durationMillis = duration;
+    return newActivity;
 }
 
-// returns next alarm from json object
-function getNextAlarm(now, alarms){
+// gets next alarm from json object
+function getNextAlarm(now, alarms) {
     nextAlarm = getDefaultWakeupTime(now);
     for (i in alarms) {
         alarm = alarms[i];
         if (alarm.recurring && alarm.enabled) {
-            for (j in alarm.weekDays){
+            for (j in alarm.weekDays) {
                 thisAlarm = getDateFromDay(alarm.weekDays[j]).at(alarm.time);
                 nextAlarm = (nextAlarm < thisAlarm) ? nextAlarm : thisAlarm;
             }
@@ -99,21 +124,21 @@ function getNextAlarm(now, alarms){
     return nextAlarm;
 }
 
-// returns next default wakeup time (today's or tomorrow's)
-function getDefaultWakeupTime(now){
+// gets next default wakeup time (today's or tomorrow's)
+function getDefaultWakeupTime(now) {
     todaysAlarm = Date.today().at(config.DEFAULT_WAKEUP);
     tomorrowsAlarm = Date.parse("tomorrow").at(config.DEFAULT_WAKEUP);
     return (now < todaysAlarm) ? todaysAlarm : tomorrowsAlarm;
 }
 
 // parses oauth tokens from req.url /fitbit/fitbit?oauth_token=[1]&oauth_verifier=[2]
-function getTokenAndVerifier(url){
+function getTokenAndVerifier(url) {
     regex = /\/fitbit\/fitbit\?oauth_token=([a-z0-9]{32})&oauth_verifier=([a-z0-9]{32})/;
     return url.match(regex);
 }
 
 // converts day as string to date object
-function getDateFromDay(day){
+function getDateFromDay(day) {
     switch(day) {
     case "MONDAY":
         return Date.today().next().monday();

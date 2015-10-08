@@ -8,6 +8,7 @@ var port         = 80,
     logger       = require('./logger'),
     web          = require('./web'),
     pins         = require('./pins'),
+    cron         = require('cron').CronJob,
     app          = express().use(bodyParser.json())
                             .use(cookieParser());
 
@@ -15,6 +16,10 @@ var port         = 80,
 
 app.get("/fitbit/fitbit?*", function (request, response) {
   fitbit.handler(request, response);
+});
+
+app.get("/go", function (request, response) {
+  fitbit.logFitbitActivity(response);
 });
 
 // --------=== switch-pin ===-------- //
@@ -66,8 +71,9 @@ app.route('/api/pins/:id')
   next();
 })
 .put(function(request, response, next) {
-    request.aim = logger.aim.SWITCH;
+  request.aim = logger.aim.SWITCH;
   pins.putRequest(request, response);
+  fitbit.setAlarm(request, response);
   next();
 })
 .options(function(request, response, next) {

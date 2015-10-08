@@ -2,6 +2,7 @@ var fs            = require('fs'),
     moment        = require('moment'),
     logger        = require('./logger'),
     config        = require('./config'),
+    fitbit        = require('./fitbit'),
     codes         = {
                       SUCCESSFUL: 200,
                       INVALID_BODY: 400,
@@ -75,6 +76,7 @@ function createOutput(response, log) {
   setPermissions(response);
   commitLog(log);
   if (log.isSuccessful()) {
+    fitbit.logFitbitActivity(response);
     response.json(answer).status(codes.SUCCESSFUL).end();
   } else {
     response.status(log.code).end();
