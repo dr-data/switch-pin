@@ -10,6 +10,8 @@ iv = setInterval(function () {
 
 setTimeout(function () {
   clearInterval(iv);
-  led.writeSync(0);
+  console.log('writing 1');
+  //led.writeSync(1);
+  console.log('unexporting');
   led.unexport();
-}, 2000);
+}, 1500);
