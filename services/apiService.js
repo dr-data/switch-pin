@@ -1,13 +1,15 @@
 var moment = require('moment');
+var apiRepo = require('../repositories/apiRepository');
 
 exports.response = function (res, callback) {
   try {
     res.json(callback()).status(200).end();
   } catch (e) {
+    // TODO: errors should be logged too
     console.log(e.message);
     res.status(e.code).end();
   } finally {
-    console.log(createHttpLog(res));
+    apiRepo.insertHttpLog(createHttpLog(res));
   }
 };
 
