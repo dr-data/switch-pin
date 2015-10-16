@@ -1,4 +1,4 @@
-var config = require('../auth/config');
+var config = require('../config/config');
 var pinRepo = require('../repositories/pinRepository');
 
 exports.setPin = function (number, state) {
@@ -29,5 +29,5 @@ function getPinByNumber(number) {
       return pin;
     }
   }
-  throw new config.error("GPIO '" + number + "' does not exist", 404);
+  throw new config.error("GPIO " + number + " does not exist", 404);
 }

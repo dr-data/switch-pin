@@ -1,6 +1,6 @@
 var express = require('express');
 var router = express.Router();
-var config = require('../auth/config');
+var config = require('../config/config');
 var pins = require('../services/pinService');
 var api = require('../services/apiService');
 

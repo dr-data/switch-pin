@@ -5,7 +5,7 @@ exports.getState = function (number) {
   var state = gpio.readSync();
   gpio.unexport();
   if ([0,1].indexOf(state) < 0) {
-    throw new config.error("GPIO '" + number + "' could not be read", 500);
+    throw new config.error("GPIO " + number + " could not be read", 500);
   }
   return state;
 };
