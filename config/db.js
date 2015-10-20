@@ -4,8 +4,6 @@ query.connectionParameters = config.dbConString;
 
 exports.insert = function (sql) {
 	query(sql, function(err, rows, result) {
-		if (err) {
-			console.log(err);
-		}
-  });
+		if (err) console.log(err);
+	});
 };

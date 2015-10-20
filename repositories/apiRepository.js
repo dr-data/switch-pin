@@ -1,8 +1,12 @@
+var escape = require("pg-escape");
 var squel = require("squel");
 var db = require('../config/db');
+var config = require('../config/config');
 var table = "HttpRequests";
 
 exports.insertHttpLog = function (log) {
+
+  // should clean: Url, Uri, Message
 
   var sql = squel
     .insert()
