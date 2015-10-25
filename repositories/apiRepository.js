@@ -1,7 +1,6 @@
 var escape = require("pg-escape");
 var squel = require("squel");
 var db = require('../config/db');
-var config = require('../config/config');
 var table = "HttpRequests";
 var logService = require('../services/logService');
 

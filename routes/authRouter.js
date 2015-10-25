@@ -1,18 +1,17 @@
 var express = require('express');
 var router  = express.Router();
-var config  = require('../config/config');
 var api     = require('../services/apiService');
 var auth    = require('../services/authService');
 
 router.route('/secret')
     .put(function(req, res, next) {
-        var callback = function(){ return auth.verifySecret(req.body.secret); };
+        var callback = function(){ auth.verifySecret(req.body.secret); return {}; };
         api.response(res, callback);
     });
 
 router.route('/password')
     .put(function(req, res, next) {
-        var callback = function(){ return auth.verifyPassword(req.body.password); };
+        var callback = function(){ auth.verifyPassword(req.body.password); return auth.getSecret(); };
         api.response(res, callback);
     });
 

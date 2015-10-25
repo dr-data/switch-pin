@@ -1,18 +1,20 @@
 var config = require('../config/config');
 var log    = require('../services/logService');
 
+exports.getSecret = function() {
+  return {'secret':config.secret};
+};
+
 exports.verifySecret = function(secret) {
   if (secret != config.secret) {
-  	throw new log.error("Invalid secret", 401);
+    throw new log.error("Invalid secret", 401);
   }
-  return {};
 };
 
 exports.verifyPassword = function(password) {
   if (password != config.password) {
-    throw new log.error("Invalid password", 402);
+    throw new log.error("Invalid password", 401);
   }
-  return {};
 };
 
 exports.authorize = function(ip, body) {
@@ -28,5 +30,4 @@ exports.authorize = function(ip, body) {
   if (body.state != 0 && body.state != 1) {
     throw new log.error("Invalid state", 409);
   }
-  return {};
 };
