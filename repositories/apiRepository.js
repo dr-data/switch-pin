@@ -3,10 +3,13 @@ var squel = require("squel");
 var db = require('../config/db');
 var config = require('../config/config');
 var table = "HttpRequests";
+var logService = require('../services/logService');
 
 exports.insertHttpLog = function (log) {
 
   // should clean: Url, Uri, Message
+
+  logService.console(log);
 
   var sql = squel
     .insert()

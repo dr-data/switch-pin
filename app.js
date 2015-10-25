@@ -13,7 +13,7 @@ app.use('/api', function (req, res, next) {
 
 app.use(bodyParser.json());
 app.use(cookieParser());
-
+app.use(authRouter.allowCrossDomain);
 app.use('/api', pinRouter);
 app.use('/api', authRouter);
 

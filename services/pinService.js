@@ -6,6 +6,7 @@ exports.setPin = function (number, state) {
   pin = getPinByNumber(number);
   pinRepo.setState(number, state);
   pin.state = pinRepo.getState(pin.number);
+  verifyState(number, state, pin.state);
   return pin;
 };
 
@@ -31,4 +32,10 @@ function getPinByNumber(number) {
     }
   }
   throw new log.error("GPIO " + number + " does not exist", 404);
+}
+
+function verifyState(number, requestedState, actualState) {
+  if (requestedState != actualState) {
+    throw new log.error("Cannot write GPIO " + number + " from " + actualState + " to " + requestedState , 501);
+  }
 }

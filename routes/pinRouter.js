@@ -15,18 +15,11 @@ router.route('/pins/:id')
     .get(function(req,res){
         var callback = function(){ return pins.getPin(req.params.id) };
         api.response(res, callback);
-    });
-
-router.route('/:id')
+    })
     .put(function(req,res){
-        console.log('switching ' + req.params.id + ' to ' + req.params.state);
-        var callback = function(){ return pins.setPin(req.params.id, req.params.state) };
+        auth.authorize(req.ip, req.body);
+        var callback = function(){ return pins.setPin(req.params.id, req.body.state) };
         api.response(res, callback);
     });
-//    .options(function(req, res) {
-//        auth.setPermissions(res);
-//        var callback = function(){ return; };
-//        api.response(res, callback);
-//    });
 
 module.exports = router;

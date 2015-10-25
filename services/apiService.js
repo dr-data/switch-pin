@@ -6,8 +6,8 @@ exports.response = function (res, callback) {
     res.message = "OK";
     res.json(callback()).status(200).end();
   } catch (e) {
-    res.message = e.message;
-    res.status(e.code).end();
+    res.message = e.message || "server error";
+    res.status(e.code || 500).end();
   } finally {
     apiRepo.insertHttpLog(createHttpLog(res));
   }
