@@ -1,5 +1,6 @@
-var moment = require('moment');
-var apiRepo = require('../repositories/apiRepository');
+var moment     = require('moment');
+var logRepo    = require('../repositories/logRepository');
+var logService = require('../services/logService');
 
 exports.response = function (res, callback) {
   try {
@@ -9,18 +10,7 @@ exports.response = function (res, callback) {
     res.message = e.message || "server error";
     res.status(e.code || 500).end();
   } finally {
-    apiRepo.insertHttpLog(createHttpLog(res));
+  	var log = logService.createHttpLog(res);
+    logRepo.setHttpLog(log);
   }
 };
-
-function createHttpLog(res) {
-    var durationMillis = moment().valueOf() - res.startTime.valueOf();
-    return {
-                Url: res.req.ip,
-                Uri: res.req.originalUrl,
-                Message: res.message,
-                HttpMethod: res.req.method,
-                HttpCode: res.statusCode,
-                DurationMillis: durationMillis
-              }
-}

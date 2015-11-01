@@ -1,15 +1,11 @@
-var express = require('express');
-var router  = express.Router();
-var api     = require('../services/apiService');
+var express    = require('express');
+var router     = express.Router();
+var api        = require('../services/apiService');
+var logService = require('../services/logService');
 
-router.route('/')
+router.route('/log')
     .get(function(req,res){
-
-        var callback = function () {
-            return {'log':'suckaz!'};
-        };
-        api.response(res, callback);
-        
+    	logService.getHttpLogs(res);
      });
 
 module.exports = router;

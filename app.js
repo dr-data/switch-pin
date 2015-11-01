@@ -18,6 +18,6 @@ app.use(authRouter.allowCrossDomain);
 
 app.use('/api', pinRouter);
 app.use('/api', authRouter);
-app.use('/log', logRouter);
+app.use('/api', logRouter);
 
 module.exports = app;
