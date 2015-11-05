@@ -1,41 +1,46 @@
-var log     = require('../services/logService');
-var config  = require('../config/config');
-var pinRepo = require('../repositories/pinRepository');
+var log         = require('../services/logService');
+var config      = require('../config/config');
+var PythonShell = require('python-shell');
+var api         = require('../services/apiService');
+var options     = { mode: 'json',
+                    pythonPath: config.pythonPath,
+                    scriptPath: config.scriptPath };
 
-exports.setPin = function (number, state) {
-  pin = getPinByNumber(number);
-  pinRepo.setState(number, state);
-  pin.state = pinRepo.getState(pin.number);
-  verifyState(number, state, pin.state);
-  return pin;
+exports.setPin = function (number, state, res) {
+  options.args = ["write", number, state];
+  executeShellScript(res);
 };
 
-exports.getPin = function (number) {
-  return getPinByNumber(number);
+exports.getPins = function (number, res) {
+  options.args = ["read", number];
+  executeShellScript(res);
 };
 
-exports.getPins = function () {
-  var availablePins = [];
-  config.pins.forEach(function(pin) {
-    pin.state = pinRepo.getState(pin.number);
-    availablePins.push(pin);
+function executeShellScript(res) {
+  var shell = new PythonShell('switch.py', options);
+  var json;
+  shell.on('message', function (message) { json = message; });
+  shell.end(function (err) {
+    var callback = (json.pins.length > 0) ? successCallback(json) : failCallback();
+    api.response(res, callback);
   });
-  return availablePins;
-};
-
-function getPinByNumber(number) {
-  for (var i=0; i<config.pins.length; i++) {
-    var pin = config.pins[i];
-    if (pin.number == number) {
-      pin.state = pinRepo.getState(pin.number);
-      return pin;
-    }
-  }
-  throw new log.error("GPIO " + number + " does not exist", 404);
 }
 
-function verifyState(number, requestedState, actualState) {
-  if (requestedState != actualState) {
-    throw new log.error("Cannot write GPIO " + number + " from " + actualState + " to " + requestedState , 501);
+function getLabelByNumber(number) {
+  var label = "";
+  config.pins.forEach(function(pin) {
+    label = (pin.number == number) ? pin.label : label;
+  });
+  return label;
+}
+
+function successCallback(json) {
+  for (var i=0; i<json.pins.length; i++) {
+    json.pins[i].label = getLabelByNumber(json.pins[i].number);
   }
+  return (function() { return json; });
+}
+
+function failCallback() {
+  return (function() { throw new log.error("Failed to access GPIO", 500); });
 }
