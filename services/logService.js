@@ -14,13 +14,21 @@ var moment  = require('moment');
 var logRepo = require('../repositories/logRepository');
 
 exports.console = function(log) {
-	var string = log.HttpMethod + log.Uri + " from " + log.Url + " (" + log.DurationMillis + "ms) " + log.HttpCode + ": " + log.Message;
+	var string;
+	if (log.HttpCode) {
+		string = log.HttpMethod + log.Uri + " from " + log.Url + " (" + log.DurationMillis + "ms) " + log.HttpCode + ": " + log.Message;
+	} else if (log.Gpio) {
+		string = "GPIO/" + log.Gpio + "/" + log.RequestState.substring(2,3) + " (" + log.StartState.substring(2,3) + " -> " + log.EndState.substring(2,3) + ")";
+	} else {
+		string = "no log found";
+		console.log(log);
+	}
 	console.log(string);
 };
 
 exports.error = function (message, code) {
-  this.message = message;
-  this.code = code;
+  this.message = message || "no message found";
+  this.code = code || "no code found";
 };
 
 exports.createHttpLog = function (res) {
@@ -32,12 +40,51 @@ exports.createHttpLog = function (res) {
                 HttpMethod: res.req.method,
                 HttpCode: res.statusCode,
                 DurationMillis: durationMillis
-              }
-}
+            };
+};
+
+exports.createSwitchLog = function(switched) {
+	return {
+		FitbitRequestId: null,
+		HttpRequestId: null,
+		Gpio: parseInt(switched.gpio),
+		RequestState: "B'" + parseInt(switched.requeststate) + "'",
+		StartState: "B'" + switched.startstate + "'",
+		EndState: "B'" + switched.endstate + "'"
+	};
+};
 
 exports.getHttpLogs = function (res) {
 	return logRepo.getHttpLogs(res);
-}
+};
+
+exports.getSwitchLogs = function (res) {
+	return logRepo.getSwitchLogs(res);
+};
+
+exports.formatSwitchResults = function (result) {
+	var headers = ["id", "fitbitrequestid", "httprequestid", "gpio", "requeststate", "startstate", "endstate", "datecreated"];
+	var table = [];
+	result.rows.forEach(function(r) {
+		var datecreated = moment(r.datecreated).format('MMM D');
+		var timecreated = moment(r.datecreated).format('h:m:s.SSS a');
+		table.push({
+			'id' : r.id,
+			'fitbitrequestid' : r.fitbitrequestid,
+			'httprequestid' : r.httprequestid,
+			'gpio' : r.gpio,
+			'requeststate' : r.requeststate,
+			'startstate' : r.startstate,
+			'endstate' : r.endstate,
+			'date' : datecreated,
+			'time' : timecreated
+		});
+	});
+	return {
+		headers: headers,
+		table: table
+	};
+};
 
 exports.formatHttpResults = function (result) {
 	var headers = ["id", "url", "uri", "method", "code", "duration", "date", "time", "message"];
@@ -61,4 +108,4 @@ exports.formatHttpResults = function (result) {
 		headers: headers,
 		table: table
 	};
-}
+};

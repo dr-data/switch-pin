@@ -3,9 +3,16 @@ var router     = express.Router();
 var api        = require('../services/apiService');
 var logService = require('../services/logService');
 
-router.route('/log')
+router.route('/logs/:id')
     .get(function(req,res){
-    	logService.getHttpLogs(res);
+    	switch(req.params.id) {
+    		case "HttpRequests":
+    			logService.getHttpLogs(res);
+    			break;
+    		case "SwitchRequests":
+    			logService.getSwitchLogs(res);
+    			break;
+    	}    	
      });
 
 module.exports = router;

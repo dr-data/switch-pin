@@ -23,15 +23,21 @@ def write(pin, state):
 	GPIO.setwarnings(False)
 	GPIO.setmode(GPIO.BCM)
 	GPIO.setup(pin, GPIO.OUT)
+	start = GPIO.input(pin)
 	GPIO.output(pin, state)
 	state = GPIO.input(pin)
-	return status(json(pin, state))
+	return status(json(pin, state, start))
 
-def json(pin, state):
-	return """{{"number":{0},"state":{1}}}""".format(pin, state)
+def json(pin, state, start=-1):
+	return """{{"number":{0},"state":{1},"start":{2}}}""".format(pin, state, start)
 
 def status(json):
 	return """{{"pins":[{0}]}}""".format(json)
+
+def cleanup():
+	GPIO.setwarnings(False)
+	GPIO.cleanup()
+	print "cleanup"
 
 def writeOptions():
 	if len(sys.argv) == 4 and sys.argv[2] in config.pins and sys.argv[3] in config.states:
@@ -48,7 +54,9 @@ def readOptions():
 		print status("")
 
 if __name__ == "__main__":
-	if len(sys.argv) < 3:
+	if len(sys.argv) == 2 and sys.argv[1] == "cleanup":
+		cleanup()
+	elif len(sys.argv) < 3:
 		print status("")
 	elif sys.argv[1] == "write":
 		writeOptions()
